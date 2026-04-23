@@ -1,0 +1,4 @@
+C++ -    g++ -fopenmp sort.cpp -o sort && ./sort
+
+
+python       -      python3 sort.py

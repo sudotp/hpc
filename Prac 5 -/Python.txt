@@ -1,0 +1,58 @@
+import numpy as np
+import time
+from multiprocessing import Pool, cpu_count
+
+# ---- Neural Network building blocks ----
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def relu(x):
+    return np.maximum(0, x)
+
+# One layer forward pass: output = activation(W @ x)
+def forward_pass(W, x):
+    return sigmoid(W @ x)   # @ is matrix multiply, runs in parallel
+
+# ---- Parallel batch processing using multiprocessing ----
+
+def process_sample(args):
+    W, x = args
+    return forward_pass(W, x)
+
+# ---- Main ----
+
+N = 1024        # neurons per layer
+BATCH = 100     # number of inputs to process
+
+# Random weights and inputs
+W = np.random.randn(N, N).astype(np.float32) * 0.1
+inputs = [np.random.randn(N).astype(np.float32) for _ in range(BATCH)]
+
+# --- Sequential processing ---
+print("Sequential processing...")
+start = time.time()
+seq_results = [forward_pass(W, x) for x in inputs]
+seq_time = time.time() - start
+
+# --- Parallel processing using multiple CPU cores ---
+print("Parallel processing...")
+start = time.time()
+args = [(W, x) for x in inputs]
+with Pool(processes=cpu_count()) as pool:
+    par_results = pool.map(process_sample, args)
+par_time = time.time() - start
+
+# --- Results ---
+print(f"\nHPC Neural Network Forward Pass")
+print(f"Neurons per layer: {N}")
+print(f"Batch size: {BATCH} samples")
+print(f"\nFirst 5 outputs of sample 0:")
+for i in range(5):
+    print(f"  out[{i}] = {par_results[0][i]:.4f}")
+
+print(f"\nCPU cores used: {cpu_count()}")
+print(f"Sequential time: {seq_time:.4f} sec")
+print(f"Parallel time:   {par_time:.4f} sec")
+speedup = seq_time / par_time if par_time > 0 else 1
+print(f"Speedup: {speedup:.2f}x")

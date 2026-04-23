@@ -1,0 +1,7 @@
+
+nvcc matrix_mul.cu -o matrix_mul && ./matrix_mul
+
+
+
+
+python3 matrix_mul.py

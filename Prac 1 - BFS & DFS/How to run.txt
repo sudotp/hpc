@@ -1,0 +1,3 @@
+C++ - g++ -fopenmp bfs_dfs.cpp -o bfs_dfs && ./bfs_dfs
+
+Python - python3 bfs_dfs.py

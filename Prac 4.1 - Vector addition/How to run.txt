@@ -1,0 +1,5 @@
+nvcc vector_add.cu -o vector_add && ./vector_add
+
+
+pip3 install numpy
+python3 vector_add.py

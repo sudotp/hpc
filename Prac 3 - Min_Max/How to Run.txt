@@ -1,0 +1,4 @@
+C++    -       g++ -fopenmp reduction.cpp -o reduction && ./reduction
+
+
+Python      -       python3 reduction.py

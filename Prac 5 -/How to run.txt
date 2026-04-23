@@ -1,0 +1,8 @@
+nvcc hpc_aiml.cu -o hpc_aiml -lm && ./hpc_aiml
+
+
+
+
+
+
+python3 hpc_aiml.py

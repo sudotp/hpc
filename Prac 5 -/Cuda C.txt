@@ -1,0 +1,76 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+#define N 1024  // Number of neurons
+
+// Sigmoid activation: used in neural networks
+__device__ float sigmoid(float x) {
+    return 1.0f / (1.0f + expf(-x));
+}
+
+// GPU kernel: matrix-vector multiply + sigmoid (one neural network layer)
+__global__ void forwardPass(float *W, float *x, float *out, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        float sum = 0.0f;
+        for (int j = 0; j < n; j++) {
+            sum += W[i * n + j] * x[j];  // weighted sum
+        }
+        out[i] = sigmoid(sum);  // apply activation
+    }
+}
+
+// GPU kernel: apply ReLU activation (used in deep learning)
+__global__ void relu(float *data, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        data[i] = fmaxf(0.0f, data[i]);  // relu: max(0, x)
+    }
+}
+
+int main() {
+    int wSize = N * N * sizeof(float);
+    int vSize = N * sizeof(float);
+
+    // Allocate CPU memory
+    float *W = (float*)malloc(wSize);  // weight matrix
+    float *x = (float*)malloc(vSize);  // input vector
+    float *out = (float*)malloc(vSize); // output
+
+    // Initialize weights and input randomly
+    for (int i = 0; i < N * N; i++) W[i] = ((float)rand() / RAND_MAX) * 0.1f;
+    for (int i = 0; i < N; i++) x[i] = ((float)rand() / RAND_MAX);
+
+    // GPU memory
+    float *d_W, *d_x, *d_out;
+    cudaMalloc(&d_W, wSize);
+    cudaMalloc(&d_x, vSize);
+    cudaMalloc(&d_out, vSize);
+
+    cudaMemcpy(d_W, W, wSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_x, x, vSize, cudaMemcpyHostToDevice);
+
+    int threads = 256;
+    int blocks = (N + threads - 1) / threads;
+
+    // Forward pass (like one layer of a neural network)
+    forwardPass<<<blocks, threads>>>(d_W, d_x, d_out, N);
+
+    // Apply ReLU on output
+    relu<<<blocks, threads>>>(d_out, N);
+
+    cudaMemcpy(out, d_out, vSize, cudaMemcpyDeviceToHost);
+
+    printf("HPC Neural Network Forward Pass\n");
+    printf("Input size: %d neurons\n", N);
+    printf("First 5 outputs (after sigmoid + relu):\n");
+    for (int i = 0; i < 5; i++) {
+        printf("out[%d] = %.4f\n", i, out[i]);
+    }
+
+    free(W); free(x); free(out);
+    cudaFree(d_W); cudaFree(d_x); cudaFree(d_out);
+
+    return 0;
+}

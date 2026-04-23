@@ -1,0 +1,37 @@
+import time
+from multiprocessing import Pool
+
+def chunk_stats(chunk):
+    return {
+        'min': min(chunk),
+        'max': max(chunk),
+        'sum': sum(chunk),
+        'count': len(chunk)
+    }
+
+def parallel_reduction(arr, workers=4):
+    n = len(arr)
+    size = n // workers
+    chunks = [arr[i*size:(i+1)*size] for i in range(workers)]
+    if n % workers != 0:
+        chunks[-1] += arr[workers*size:]
+
+    with Pool(workers) as pool:
+        results = pool.map(chunk_stats, chunks)
+
+    final_min = min(r['min'] for r in results)
+    final_max = max(r['max'] for r in results)
+    final_sum = sum(r['sum'] for r in results)
+    final_avg = final_sum / sum(r['count'] for r in results)
+    return final_min, final_max, final_sum, final_avg
+
+arr = [3, 1, 7, 0, 9, 4, 6, 2, 8, 5]
+print("Array:", arr)
+
+t = time.time()
+mn, mx, sm, avg = parallel_reduction(arr)
+print(f"\nMin:     {mn}")
+print(f"Max:     {mx}")
+print(f"Sum:     {sm}")
+print(f"Average: {avg}")
+print(f"\nTime: {time.time()-t:.6f}s")

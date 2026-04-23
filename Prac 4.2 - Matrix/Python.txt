@@ -1,0 +1,38 @@
+import numpy as np
+import time
+
+# Matrix size
+N = 512
+
+# Create two N x N matrices
+A = np.ones((N, N), dtype=np.float32)       # all 1s
+B = np.full((N, N), 2.0, dtype=np.float32)  # all 2s
+
+# --- Sequential matrix multiplication (manual) ---
+def sequential_matmul(A, B, size=50):
+    # Only doing small size for demo (full would be too slow)
+    C = [[0]*size for _ in range(size)]
+    for i in range(size):
+        for j in range(size):
+            for k in range(size):
+                C[i][j] += A[i][k] * B[k][j]
+    return C
+
+print("Running sequential (50x50 portion)...")
+start = time.time()
+C_seq = sequential_matmul(A, B)
+seq_time = time.time() - start
+
+# --- Parallel matrix multiplication using NumPy ---
+print("Running parallel NumPy (512x512 full)...")
+start = time.time()
+C_parallel = np.dot(A, B)   # highly optimized parallel operation
+parallel_time = time.time() - start
+
+# Show results
+print(f"\nMatrix size: {N}x{N}")
+print(f"C[0][0] = {C_parallel[0][0]:.1f} (expected: {N * 2.0:.1f})")
+print(f"C[N-1][N-1] = {C_parallel[N-1][N-1]:.1f}")
+print(f"\nSequential time (50x50): {seq_time:.4f} sec")
+print(f"Parallel NumPy time (512x512): {parallel_time:.4f} sec")
+print("NumPy uses parallel BLAS operations internally!")

@@ -1,0 +1,26 @@
+import numpy as np
+import time
+
+# Create two large arrays (1 million elements)
+n = 1000000
+a = np.arange(n, dtype=np.int32)        # [0, 1, 2, ..., n-1]
+b = np.arange(n, dtype=np.int32) * 2    # [0, 2, 4, ..., 2*(n-1)]
+
+# --- Normal (sequential) addition ---
+start = time.time()
+c_normal = [a[i] + b[i] for i in range(1000)]  # just 1000 for speed demo
+normal_time = time.time() - start
+
+# --- Parallel addition using NumPy ---
+start = time.time()
+c_parallel = a + b   # NumPy runs this in parallel internally
+parallel_time = time.time() - start
+
+# Show results
+print("First 5 results:")
+for i in range(5):
+    print(f"c[{i}] = {a[i]} + {b[i]} = {c_parallel[i]}")
+
+print(f"\nSequential (1000 elements): {normal_time:.6f} sec")
+print(f"Parallel NumPy (1M elements): {parallel_time:.6f} sec")
+print("NumPy is much faster due to parallel execution!")
