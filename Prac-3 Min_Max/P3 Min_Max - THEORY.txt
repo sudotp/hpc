@@ -1,0 +1,192 @@
+================================================================
+PRACTICAL 3 - Min, Max, Sum and Average using Parallel Reduction
+THEORY - FOR WRITING ON PAPER
+================================================================
+
+TITLE:
+Implement Min, Max, Sum and Average Operations
+using Parallel Reduction with OpenMP
+
+----------------------------------------------------------------
+AIM
+----------------------------------------------------------------
+To implement Minimum, Maximum, Sum and Average operations on
+an array using the Parallel Reduction technique in OpenMP
+and observe the use of reduction clauses in parallel computing.
+
+----------------------------------------------------------------
+OBJECTIVES
+----------------------------------------------------------------
+1. To understand the concept of Reduction in parallel computing.
+2. To use OpenMP reduction clause for parallel min, max, and sum.
+3. To compare parallel reduction with sequential computation.
+4. To understand thread-safety in reduction operations.
+
+----------------------------------------------------------------
+THEORY
+----------------------------------------------------------------
+
+1. REDUCTION OPERATION
+------------------------
+In computing, a Reduction operation takes an array of values
+and reduces them to a single value using an operation.
+
+Common reduction operations:
+  - Sum:     add all elements → single total
+  - Minimum: find the smallest element
+  - Maximum: find the largest element
+  - Product: multiply all elements
+
+Sequential reduction example (Sum):
+  arr = [5, 3, 8, 1, 9]
+  Step 1: sum = 0 + 5 = 5
+  Step 2: sum = 5 + 3 = 8
+  Step 3: sum = 8 + 8 = 16
+  Step 4: sum = 16 + 1 = 17
+  Step 5: sum = 17 + 9 = 26
+  Total steps = n (one by one) — Sequential
+
+
+2. PARALLEL REDUCTION
+-----------------------
+Parallel Reduction speeds up the reduction operation by
+dividing the array among multiple threads.
+
+Each thread reduces its own portion independently.
+Then all partial results are combined to get the final answer.
+
+Example: Sum of [5, 3, 8, 1, 9, 2, 7, 4, 6, 10] with 2 threads:
+
+  Thread 1 → arr[0..4] = [5, 3, 8, 1, 9]   → partial_sum = 26
+  Thread 2 → arr[5..9] = [2, 7, 4, 6, 10]  → partial_sum = 29
+  (Both threads work at the same time)
+
+  Final step: 26 + 29 = 55 ← total sum
+
+This is like a tree-based combination — divide work, then combine.
+For n elements and p threads: time = O(n/p) instead of O(n).
+
+
+3. OPENMP REDUCTION CLAUSE
+----------------------------
+OpenMP provides a built-in reduction clause that handles
+parallel reduction automatically and safely.
+
+Syntax:
+  #pragma omp parallel for reduction(operator : variable)
+
+How it works internally:
+  Step 1: OpenMP creates a PRIVATE copy of the variable for
+          each thread, initialized appropriately.
+          (min → INT_MAX, max → INT_MIN, + → 0)
+  Step 2: Each thread updates its own private copy independently.
+          No shared access — no race condition possible.
+  Step 3: After all threads finish, OpenMP combines all private
+          copies using the specified operator.
+  Step 4: Final combined value is stored in the original variable.
+
+Supported operators:
+  +     → Sum
+  *     → Product
+  min   → Minimum
+  max   → Maximum
+  &     → Bitwise AND
+  |     → Bitwise OR
+
+
+4. OPERATIONS IMPLEMENTED
+---------------------------
+
+a) MINIMUM:
+   Initialize: minVal = INT_MAX (largest possible integer)
+   Reduction:  #pragma omp parallel for reduction(min : minVal)
+   Each thread finds the minimum of its portion.
+   Final min = minimum of all thread minimums.
+
+b) MAXIMUM:
+   Initialize: maxVal = INT_MIN (smallest possible integer)
+   Reduction:  #pragma omp parallel for reduction(max : maxVal)
+   Each thread finds the maximum of its portion.
+   Final max = maximum of all thread maximums.
+
+c) SUM:
+   Initialize: sum = 0
+   Reduction:  #pragma omp parallel for reduction(+ : sum)
+   Each thread sums its portion.
+   Final sum = sum of all thread sums.
+
+d) AVERAGE:
+   Calculated after parallel sum:
+   average = (double)sum / N
+   Cast to double ensures decimal result (not integer division).
+
+
+5. RACE CONDITION IN REDUCTION
+--------------------------------
+Without the reduction clause, parallel reduction would cause
+a Race Condition.
+
+Race Condition example:
+  Thread 1 reads sum = 10
+  Thread 2 reads sum = 10  (before Thread 1 updates)
+  Thread 1 writes sum = 10 + 5 = 15
+  Thread 2 writes sum = 10 + 3 = 13  (OVERWRITES Thread 1's result)
+  Final sum = 13 instead of 18 — WRONG!
+
+The reduction clause prevents this by giving each thread
+its own private copy — no shared access during computation.
+Only the final combination step is done safely.
+
+
+6. INITIALIZATION VALUES
+--------------------------
+Why minVal starts at INT_MAX:
+  INT_MAX = 2,147,483,647 (largest int value)
+  Every real array element will be smaller → will replace it.
+  Ensures the first comparison always updates minVal correctly.
+
+Why maxVal starts at INT_MIN:
+  INT_MIN = -2,147,483,648 (smallest int value)
+  Every real array element will be larger → will replace it.
+  Ensures the first comparison always updates maxVal correctly.
+
+Why sum starts at 0:
+  Adding 0 to any number doesn't change it.
+  0 is the identity element for addition.
+
+
+7. ADVANTAGES OF PARALLEL REDUCTION
+--------------------------------------
+1. Speed: With p threads, time reduces from O(n) to O(n/p).
+          4 threads = ~4x faster for large arrays.
+
+2. Scalability: Works efficiently with more cores/threads.
+
+3. Safety: OpenMP's reduction clause handles thread safety
+           automatically — no manual locking needed.
+
+4. Simplicity: Just one pragma directive — easy to implement.
+
+Real-world applications:
+  - Finding maximum temperature across millions of sensor readings
+  - Calculating total revenue from millions of transactions
+  - Finding minimum price across millions of products
+  - Computing average of large datasets in big data processing
+
+
+----------------------------------------------------------------
+CONCLUSION
+----------------------------------------------------------------
+In this practical, we successfully implemented Minimum, Maximum,
+Sum and Average operations using OpenMP's Parallel Reduction
+technique. The reduction clause in OpenMP automatically creates
+private copies of variables for each thread, eliminates race
+conditions, and combines results safely at the end. Min uses
+reduction(min:), Max uses reduction(max:), and Sum uses
+reduction(+:). Average is derived from the parallel sum.
+The results for array {5,3,8,1,9,2,7,4,6,10} are:
+Min=1, Max=10, Sum=55, Average=5.5 — all correct.
+Parallel reduction is a fundamental technique in HPC used
+wherever large-scale data aggregation is required.
+
+================================================================

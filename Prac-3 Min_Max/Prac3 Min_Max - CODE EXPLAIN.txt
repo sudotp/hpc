@@ -1,0 +1,216 @@
+================================================================
+PRACTICAL 3 - Min, Max, Sum and Average using Parallel Reduction
+EXPLANATION - LINE BY LINE + TEACHER QUESTIONS
+================================================================
+
+WHAT IS THIS PRACTICAL?
+------------------------
+We find 4 operations on an array using Parallel Reduction:
+  - Minimum value
+  - Maximum value
+  - Sum of all values
+  - Average of all values
+
+Array used: {5, 3, 8, 1, 9, 2, 7, 4, 6, 10}
+
+Expected Output:
+  Min     = 1
+  Max     = 10
+  Sum     = 55
+  Average = 5.5
+
+
+================================================================
+LINE BY LINE EXPLANATION
+================================================================
+
+--- INCLUDES ---
+
+#include <iostream>
+  For cout — printing output to screen
+
+#include <vector>
+  For vector<int> — to store the array of numbers
+
+#include <climits>
+  Provides INT_MAX and INT_MIN constants
+  INT_MAX = largest possible int value  (2147483647)
+  INT_MIN = smallest possible int value (-2147483648)
+  Used as starting values for min and max
+
+#include <omp.h>
+  For OpenMP parallel directives and reduction clause
+
+
+--- MAIN FUNCTION ---
+
+int N = 10;
+  Total number of elements in the array
+
+vector<int> arr = {5, 3, 8, 1, 9, 2, 7, 4, 6, 10};
+  Our input array with 10 integers
+
+cout << "Array: ";
+for (int x : arr) cout << x << " ";
+  Prints all elements of the array
+  Range-based for loop: x takes value of each element one by one
+
+
+--- PARALLEL MINIMUM ---
+
+int minVal = INT_MAX;
+  Start with the LARGEST possible value
+  So any real value in the array will be smaller and replace it
+  INT_MAX = 2147483647
+
+#pragma omp parallel for reduction(min : minVal)
+for (int i = 0; i < N; i++)
+    if (arr[i] < minVal) minVal = arr[i];
+
+  #pragma omp parallel for = splits the loop across threads
+  reduction(min : minVal) = this is the key part:
+    - Each thread gets its own LOCAL copy of minVal
+    - Each thread finds the minimum of its portion of the array
+    - At the end, OpenMP combines all local minimums
+      by taking the minimum of all local values
+    - Final result is stored in minVal
+
+  Example with 2 threads on [5,3,8,1,9,2,7,4,6,10]:
+    Thread 1 handles [5,3,8,1,9] → local min = 1
+    Thread 2 handles [2,7,4,6,10] → local min = 2
+    OpenMP combines: min(1, 2) = 1 ← final minVal
+
+
+--- PARALLEL MAXIMUM ---
+
+int maxVal = INT_MIN;
+  Start with the SMALLEST possible value
+  So any real value in the array will be larger and replace it
+
+#pragma omp parallel for reduction(max : maxVal)
+for (int i = 0; i < N; i++)
+    if (arr[i] > maxVal) maxVal = arr[i];
+
+  Same concept as min but with max keyword
+  Each thread finds max of its portion
+  OpenMP combines by taking max of all local maximums
+  Example: Thread 1 max=9, Thread 2 max=10 → final max=10
+
+
+--- PARALLEL SUM ---
+
+long long sum = 0;
+  long long = 64-bit integer (handles very large sums)
+  Start at 0
+
+#pragma omp parallel for reduction(+ : sum)
+for (int i = 0; i < N; i++)
+    sum += arr[i];
+
+  reduction(+ : sum) means:
+    - Each thread gets its own LOCAL copy of sum starting at 0
+    - Each thread adds up the elements in its portion
+    - At the end, all local sums are ADDED TOGETHER
+    - Final result stored in sum
+
+  Example with 2 threads:
+    Thread 1: 5+3+8+1+9 = 26
+    Thread 2: 2+7+4+6+10 = 29
+    OpenMP combines: 26 + 29 = 55 ← final sum
+
+
+--- AVERAGE ---
+
+double avg = (double)sum / N;
+  (double)sum = converts sum from long long to decimal number
+  Divides total sum by count of elements
+  55 / 10 = 5.5
+  Must cast to double otherwise integer division gives 5 not 5.5
+
+
+--- PRINT RESULTS ---
+
+cout << "Minimum : " << minVal        << endl;
+cout << "Maximum : " << maxVal        << endl;
+cout << "Sum     : " << sum           << endl;
+cout << "Average : " << avg           << endl;
+  Prints all four results
+
+
+================================================================
+EXPECTED OUTPUT
+================================================================
+Array: 5 3 8 1 9 2 7 4 6 10
+Minimum : 1
+Maximum : 10
+Sum     : 55
+Average : 5.5
+
+
+================================================================
+TEACHER QUESTIONS AND ANSWERS
+================================================================
+
+Q1. What is Parallel Reduction?
+A:  Reduction means combining many values into one result.
+    (e.g., finding sum, min, or max of an array)
+    Parallel Reduction splits the array among threads,
+    each thread reduces its portion independently,
+    then all partial results are combined at the end.
+
+Q2. What is the reduction clause in OpenMP?
+A:  #pragma omp parallel for reduction(operator : variable)
+    It creates a private copy of the variable for each thread.
+    Each thread works on its copy independently (no race condition).
+    At the end, all private copies are combined using the operator.
+    Operators: min, max, + (sum), * (product), & (AND), | (OR)
+
+Q3. Why do we initialize minVal to INT_MAX?
+A:  We start with the largest possible integer value.
+    So the very first real value we compare will be smaller
+    and will replace INT_MAX.
+    If we started with 0 and all values were positive,
+    min might incorrectly return 0.
+
+Q4. Why do we initialize maxVal to INT_MIN?
+A:  We start with the smallest possible integer value.
+    So the very first real value will be larger and replace INT_MIN.
+    Ensures we don't miss the actual maximum.
+
+Q5. Why is sum declared as long long instead of int?
+A:  long long holds much larger values than int.
+    int max = 2,147,483,647
+    long long max = 9,223,372,036,854,775,807
+    For large arrays with large values, sum could overflow int.
+    long long prevents this overflow.
+
+Q6. Why do we cast sum to double before calculating average?
+A:  If both sum and N are integers, C++ does integer division.
+    55 / 10 = 5  (integer — drops decimal)
+    (double)55 / 10 = 5.5 (decimal — correct)
+    Casting to double ensures we get the proper decimal result.
+
+Q7. What is the difference between sequential and parallel reduction?
+A:  Sequential: loops through all elements one by one → O(n) steps
+    Parallel: multiple threads process portions simultaneously
+              final combination takes O(log p) steps (p = threads)
+    Parallel is faster for large arrays.
+
+Q8. What are the 4 reduction operators used?
+A:  min  : reduction(min : minVal)  → finds minimum
+    max  : reduction(max : maxVal)  → finds maximum
+    +    : reduction(+ : sum)       → calculates sum
+    Average is calculated from sum — not a direct reduction operator.
+
+Q9. Can reduction cause race conditions?
+A:  No. The reduction clause specifically prevents race conditions.
+    Each thread has its OWN private copy of the variable.
+    No two threads share the same copy during computation.
+    Only at the final combination step does OpenMP safely merge them.
+
+Q10. What is the time complexity?
+A:   Sequential: O(n) — visits each element once
+     Parallel:   O(n/p) — where p = number of threads
+     With 4 threads: effectively O(n/4) — 4 times faster
+
+================================================================

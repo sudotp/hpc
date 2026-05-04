@@ -1,0 +1,196 @@
+================================================================
+PRACTICAL 2 - Parallel Bubble Sort and Merge Sort using OpenMP
+THEORY - FOR WRITING ON PAPER
+================================================================
+
+TITLE:
+Implement Parallel Bubble Sort and Merge Sort using OpenMP
+and Measure Performance of Sequential vs Parallel Algorithms
+
+----------------------------------------------------------------
+AIM
+----------------------------------------------------------------
+To implement Parallel Bubble Sort and Merge Sort using OpenMP
+in C++ and compare the execution time of sequential and
+parallel versions of each algorithm.
+
+----------------------------------------------------------------
+OBJECTIVES
+----------------------------------------------------------------
+1. To understand Bubble Sort and Merge Sort algorithms.
+2. To implement parallel versions using OpenMP directives.
+3. To measure and compare performance using omp_get_wtime().
+4. To understand Odd-Even Transposition Sort for parallelizing
+   Bubble Sort.
+
+----------------------------------------------------------------
+THEORY
+----------------------------------------------------------------
+
+1. SORTING
+-----------
+Sorting is the process of arranging elements in a specific order
+(ascending or descending).
+
+Importance of sorting in computing:
+  - Makes searching faster (Binary Search requires sorted data)
+  - Used in databases, file systems, and algorithms
+  - Foundation of many complex algorithms
+
+We implement two sorting algorithms: Bubble Sort and Merge Sort.
+
+
+2. BUBBLE SORT
+---------------
+Bubble Sort is a simple comparison-based sorting algorithm.
+
+Working:
+  - Compare each pair of adjacent elements.
+  - If the left element is greater than the right, swap them.
+  - After each complete pass, the largest unsorted element
+    moves to its correct position at the end.
+  - Repeat for n-1 passes.
+
+Example:
+  Input:  [9, 3, 7, 1]
+  Pass 1: Compare (9,3) swap → (3,9) | Compare (9,7) swap → (7,9)
+          | Compare (9,1) swap → (1,9) → [3, 7, 1, 9]
+  Pass 2: [3, 1, 7, 9]
+  Pass 3: [1, 3, 7, 9] ← sorted
+
+Time Complexity: O(n²)
+Space Complexity: O(1) — in-place sorting
+
+
+3. PARALLEL BUBBLE SORT — ODD-EVEN TRANSPOSITION
+--------------------------------------------------
+Normal Bubble Sort cannot be directly parallelized because
+each swap depends on the previous swap.
+
+Odd-Even Transposition Sort solves this:
+
+  EVEN PHASE:
+    Compare and swap pairs at positions: (0,1), (2,3), (4,5), ...
+    These pairs are independent — can run in parallel.
+
+  ODD PHASE:
+    Compare and swap pairs at positions: (1,2), (3,4), (5,6), ...
+    These pairs are also independent — can run in parallel.
+
+  Alternate Even and Odd phases for n rounds.
+  After n rounds, the array is guaranteed to be sorted.
+
+OpenMP implementation:
+  #pragma omp parallel for
+  for (j = 0; j < n-1; j += 2)   ← even phase
+      if (arr[j] > arr[j+1]) swap
+
+  #pragma omp parallel for
+  for (j = 1; j < n-1; j += 2)   ← odd phase
+      if (arr[j] > arr[j+1]) swap
+
+
+4. MERGE SORT
+--------------
+Merge Sort is a Divide and Conquer algorithm.
+
+Working:
+  Step 1 — Divide: Split the array into two equal halves.
+  Step 2 — Conquer: Recursively sort each half.
+  Step 3 — Merge: Combine the two sorted halves into one
+                   sorted array.
+
+Example:
+  Input:  [9, 3, 7, 1, 5]
+  Split:  [9, 3] and [7, 1, 5]
+  Split:  [9] [3] and [7] [1,5] → [1,5] → [1] [5]
+  Merge:  [3,9] and [1,5,7]
+  Merge:  [1, 3, 5, 7, 9] ← sorted
+
+Time Complexity: O(n log n)
+Space Complexity: O(n) — requires extra memory for merging
+
+Merge Sort is significantly faster than Bubble Sort for
+large datasets due to O(n log n) vs O(n²) complexity.
+
+
+5. PARALLEL MERGE SORT
+------------------------
+Merge Sort is naturally suited for parallelism because the
+two halves are completely independent of each other.
+
+Parallel approach:
+  - Left half and Right half are sorted by two different threads
+    simultaneously using #pragma omp parallel sections.
+  - After both halves are sorted (in parallel), they are merged.
+
+Depth limiting:
+  - Parallelism is applied only for depth <= 3.
+  - At deeper levels, the subarrays are small and the overhead
+    of creating new threads exceeds the benefit.
+  - This avoids creating hundreds of tiny threads.
+
+OpenMP implementation:
+  #pragma omp parallel sections
+  {
+      #pragma omp section
+      mergeSort(arr, l, m);       ← Thread 1 sorts left half
+
+      #pragma omp section
+      mergeSort(arr, m+1, r);     ← Thread 2 sorts right half
+  }
+  merge(arr, l, m, r);            ← Combine after both done
+
+
+6. OPENMP DIRECTIVES USED
+---------------------------
+a) #pragma omp parallel for
+   Distributes for loop iterations across multiple threads.
+   Each thread processes different iterations simultaneously.
+   Used for both Even and Odd phases of Bubble Sort.
+
+b) #pragma omp parallel sections
+   Divides code into sections that run in parallel.
+   Used to run left and right merge sort simultaneously.
+
+c) omp_get_wtime()
+   Returns the current wall-clock time in seconds.
+   Used to measure execution time:
+     t = omp_get_wtime();     ← record start time
+     // ... code to time ...
+     elapsed = omp_get_wtime() - t;   ← calculate time taken
+
+
+7. PERFORMANCE MEASUREMENT
+----------------------------
+We measure time for both sequential and parallel versions:
+
+  Sequential Time = time without parallelism (normal loops)
+  Parallel Time   = time with OpenMP parallel directives
+
+  Speedup = Sequential Time / Parallel Time
+
+  Speedup > 1 = parallel is faster
+  Speedup < 1 = parallel is slower (happens for small arrays
+                due to thread creation overhead)
+
+Note: For small arrays (like 10 elements), the overhead of
+creating threads is more than the time saved.
+For large arrays (10,000+ elements), parallel is clearly faster.
+
+
+----------------------------------------------------------------
+CONCLUSION
+----------------------------------------------------------------
+In this practical, we implemented Parallel Bubble Sort using
+the Odd-Even Transposition method and Parallel Merge Sort using
+OpenMP parallel sections. Bubble Sort uses #pragma omp parallel
+for on non-overlapping adjacent pairs (even and odd phases).
+Merge Sort uses #pragma omp parallel sections to sort left and
+right halves simultaneously. Execution time is measured using
+omp_get_wtime() for both sequential and parallel versions.
+While parallel shows overhead for small arrays, it provides
+significant speedup for large datasets, demonstrating the
+effectiveness of parallel sorting algorithms.
+
+================================================================

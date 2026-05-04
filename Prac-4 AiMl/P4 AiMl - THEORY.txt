@@ -1,0 +1,220 @@
+================================================================
+PRACTICAL 5 - HPC Application for AI/ML Domain
+THEORY - FOR WRITING ON PAPER
+================================================================
+
+TITLE:
+HPC Application for AI/ML Domain —
+Parallel Neural Network Forward Pass using NumPy
+
+----------------------------------------------------------------
+AIM
+----------------------------------------------------------------
+To implement an HPC application for the AI/ML domain by
+simulating a Neural Network Forward Pass using NumPy's
+parallel batch processing and compare its performance
+with a sequential approach.
+
+----------------------------------------------------------------
+OBJECTIVES
+----------------------------------------------------------------
+1. To understand the structure of a feed-forward neural network.
+2. To implement forward pass using matrix multiplication.
+3. To apply HPC techniques (batching) for parallel computation.
+4. To compare sequential vs parallel execution performance.
+5. To understand ReLU and Sigmoid activation functions.
+
+----------------------------------------------------------------
+THEORY
+----------------------------------------------------------------
+
+1. HIGH PERFORMANCE COMPUTING (HPC) IN AI/ML
+----------------------------------------------
+HPC refers to using parallel processing techniques to solve
+computationally intensive problems faster.
+
+In AI/ML, HPC is critical because:
+  - Neural networks require millions of matrix multiplications
+  - Training on large datasets (millions of images) is slow
+    without parallelism
+  - GPUs and optimized libraries (BLAS, CUDA) enable parallelism
+
+In this practical, we use NumPy's batched matrix operations as
+an HPC technique. NumPy internally uses BLAS (Basic Linear
+Algebra Subprograms) — a highly optimized parallel C library.
+
+
+2. NEURAL NETWORK
+------------------
+A Neural Network is a machine learning model inspired by the
+human brain. It consists of layers of artificial neurons that
+learn to recognize patterns in data.
+
+Types of layers:
+  a) Input Layer:  Receives raw input data.
+  b) Hidden Layer: Processes and learns patterns.
+  c) Output Layer: Produces the final prediction.
+
+Our Network Architecture:
+  Input Layer  : 784 nodes (represents 28x28 pixel image)
+  Hidden Layer : 256 nodes
+  Output Layer : 10 nodes (one per class, e.g., digits 0-9)
+
+Parameters:
+  W1 = Weight matrix (256 x 784) — connects input to hidden
+  b1 = Bias vector  (256,)       — added to hidden layer
+  W2 = Weight matrix (10 x 256)  — connects hidden to output
+  b2 = Bias vector  (10,)        — added to output layer
+
+Weights are initialized with small random values (×0.1).
+Biases are initialized to zeros.
+
+
+3. FORWARD PASS
+----------------
+The Forward Pass is the process of feeding input data through
+the network layer by layer to produce an output prediction.
+
+No learning happens in forward pass — it is purely computation.
+
+Mathematical steps:
+
+  Step 1 — Hidden Layer:
+    h = ReLU(X × W1ᵀ + b1)
+    X:   input matrix      shape: (batch, 784)
+    W1ᵀ: transposed W1     shape: (784, 256)
+    X×W1ᵀ:                 shape: (batch, 256)
+    + b1: add bias         shape: (batch, 256)
+    ReLU: apply activation shape: (batch, 256)
+
+  Step 2 — Output Layer:
+    output = Sigmoid(h × W2ᵀ + b2)
+    h:    hidden output     shape: (batch, 256)
+    W2ᵀ:  transposed W2     shape: (256, 10)
+    h×W2ᵀ:                  shape: (batch, 10)
+    + b2: add bias          shape: (batch, 10)
+    Sigmoid: apply          shape: (batch, 10)
+
+  The output is a matrix of probabilities.
+  Each row = one input sample.
+  Each column = probability of belonging to that class.
+  Predicted class = column with highest probability (argmax).
+
+
+4. ACTIVATION FUNCTIONS
+------------------------
+Activation functions introduce non-linearity into the network.
+Without them, a neural network is just linear algebra and cannot
+learn complex patterns.
+
+a) ReLU (Rectified Linear Unit) — used in Hidden Layer:
+   Formula: f(x) = max(0, x)
+   - If x > 0: output = x  (passes through)
+   - If x ≤ 0: output = 0  (blocked)
+
+   Advantages:
+   - Simple and computationally fast
+   - Solves vanishing gradient problem
+   - Works well in deep networks
+
+b) Sigmoid — used in Output Layer:
+   Formula: f(x) = 1 / (1 + e⁻ˣ)
+   - Always outputs a value between 0 and 1
+   - Can be interpreted as probability
+   - For multi-output: each output = P(class i)
+
+   Example:
+   Output = [0.02, 0.05, 0.85, 0.03, ...] (sums to ~1)
+   Class 2 has probability 0.85 → predicted class = 2
+
+
+5. SEQUENTIAL vs PARALLEL (BATCHED) APPROACH
+----------------------------------------------
+Sequential Approach:
+  Process each input sample one at a time in a loop.
+  for x in X:             ← 1000 iterations
+      relu(x @ W1.T + b1) ← one computation per loop
+  Problems:
+  - Python loop has overhead for each iteration
+  - Cannot utilize CPU's parallel capabilities
+
+Parallel (Batched NumPy) Approach:
+  Process ALL samples simultaneously in one matrix operation.
+  h = relu(X @ W1.T + b1)  ← processes all 1000 at once
+
+  X shape: (1000, 784) — entire batch as one matrix
+  Single matrix multiply processes all 1000 samples together.
+
+  Why it's faster:
+  - NumPy uses BLAS which runs in parallel using multiple CPU cores
+  - One large matrix operation is more efficient than 1000 small ones
+  - CPU SIMD instructions process multiple data in one clock cycle
+  - No Python loop overhead
+
+
+6. NUMPY AS AN HPC TOOL
+-------------------------
+NumPy (Numerical Python) is a scientific computing library for Python.
+
+Key HPC features:
+  - Written in C and Fortran internally (not pure Python)
+  - Uses BLAS/LAPACK for optimized linear algebra
+  - SIMD (Single Instruction Multiple Data) vectorization
+  - Automatic parallelization of array operations
+
+The @ operator performs matrix multiplication using these
+optimized routines automatically.
+
+This is the Python equivalent of what CUDA/OpenMP do in C++:
+running operations on many data points simultaneously.
+
+
+7. PERFORMANCE MEASUREMENT
+----------------------------
+We measure time using Python's time module:
+
+  t = time.time()     ← record start time
+  # ... computation ...
+  elapsed = time.time() - t   ← time taken
+
+Speedup = Sequential Time / Parallel Time
+
+If Speedup = 1.54x → parallel is 1.54 times faster.
+
+For larger batches and deeper networks, speedup is much higher.
+In real AI training on GPUs (CUDA), speedup can be 100x or more.
+
+
+8. APPLICATION IN REAL AI/ML
+------------------------------
+This practical demonstrates the exact computation used in:
+
+  - Image classification (ResNet, VGG, etc.)
+  - Natural Language Processing (BERT, GPT)
+  - Speech recognition models
+
+Real frameworks like TensorFlow and PyTorch:
+  - Always use batched matrix operations (not loops)
+  - Offload computation to GPU using CUDA for massive parallelism
+  - This is why modern AI requires HPC infrastructure
+
+The pattern in this practical:
+  Sequential loop → NumPy batch → GPU (CUDA) → Distributed GPU
+  Each step gives orders of magnitude more speedup.
+
+
+----------------------------------------------------------------
+CONCLUSION
+----------------------------------------------------------------
+In this practical, we implemented an HPC application for the
+AI/ML domain using a Neural Network Forward Pass in Python with
+NumPy. The network has 784 input nodes, 256 hidden nodes with
+ReLU activation, and 10 output nodes with Sigmoid activation.
+The parallel batched approach processes all 1000 samples using
+a single matrix multiplication, leveraging NumPy's internal
+BLAS parallelism. Compared to a sequential loop, the parallel
+approach shows measurable speedup. This demonstrates how HPC
+techniques like batch processing and optimized linear algebra
+libraries are fundamental to modern AI/ML applications.
+
+================================================================

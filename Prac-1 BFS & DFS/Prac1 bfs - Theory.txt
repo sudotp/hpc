@@ -1,0 +1,183 @@
+================================================================
+PRACTICAL 1 - Parallel BFS and DFS using OpenMP
+THEORY - FOR WRITING ON PAPER
+================================================================
+
+TITLE:
+Design and Implement Parallel BFS and DFS using OpenMP
+on an Undirected Graph
+
+----------------------------------------------------------------
+AIM
+----------------------------------------------------------------
+To design and implement Parallel Breadth First Search (BFS) and
+Depth First Search (DFS) algorithms using OpenMP on an undirected
+graph and observe parallel execution of graph traversal.
+
+----------------------------------------------------------------
+OBJECTIVES
+----------------------------------------------------------------
+1. To understand graph traversal algorithms BFS and DFS.
+2. To implement parallelism in graph traversal using OpenMP.
+3. To use #pragma omp parallel for and #pragma omp critical
+   directives for thread-safe parallel execution.
+
+----------------------------------------------------------------
+THEORY
+----------------------------------------------------------------
+
+1. GRAPH
+---------
+A Graph is a data structure consisting of:
+  - Nodes (also called Vertices) — represent entities
+  - Edges — connections between nodes
+
+Types of graphs:
+  - Directed Graph: edges have a direction (one-way)
+  - Undirected Graph: edges go both ways (used in this practical)
+
+Representation:
+  - Adjacency List: each node stores a list of its neighbors.
+    Example: graph[0] = [1, 2] means node 0 connects to 1 and 2.
+  - Adjacency Matrix: 2D array where matrix[i][j]=1 means edge exists.
+
+We use an Adjacency List as it is more memory efficient.
+
+
+2. BREADTH FIRST SEARCH (BFS)
+-------------------------------
+BFS is a graph traversal algorithm that visits nodes level by level.
+It starts from a source node and first visits all its neighbors,
+then their neighbors, and so on.
+
+Data Structure used: Queue (FIFO — First In First Out)
+
+Algorithm:
+  Step 1: Mark start node as visited. Add to queue.
+  Step 2: While queue is not empty:
+            a. Remove front node from queue. Print it.
+            b. For each unvisited neighbor:
+               Mark visited. Add to queue.
+  Step 3: Repeat until all reachable nodes are visited.
+
+Example on our graph (start = 0):
+  Level 0: Visit 0
+  Level 1: Visit 1, 2     (neighbors of 0)
+  Level 2: Visit 3, 4, 5  (neighbors of 1 and 2)
+  Level 3: Visit 6         (neighbor of 5)
+  Output: 0 1 2 3 4 5 6
+
+Time Complexity: O(V + E) where V = vertices, E = edges
+
+
+3. DEPTH FIRST SEARCH (DFS)
+-----------------------------
+DFS is a graph traversal algorithm that explores as deep as
+possible along each branch before backtracking.
+
+Data Structure used: Stack (LIFO — Last In First Out)
+
+Algorithm:
+  Step 1: Mark start node as visited. Push to stack.
+  Step 2: While stack is not empty:
+            a. Pop top node from stack. Print it.
+            b. For each unvisited neighbor:
+               Mark visited. Push to stack.
+  Step 3: Repeat until stack is empty.
+
+Example on our graph (start = 0):
+  Start: Push 0 → Pop 0 → Push 2, 1
+  Pop 1 → Push 4, 3
+  Pop 3 → no unvisited neighbors
+  Pop 4 → no unvisited neighbors
+  Pop 2 → Push 5 → Pop 5 → Push 6 → Pop 6
+  Output: 0 1 3 4 2 5 6  (order may vary due to parallelism)
+
+Time Complexity: O(V + E)
+
+
+4. OPENMP (OPEN MULTI-PROCESSING)
+-----------------------------------
+OpenMP is an API (Application Programming Interface) for
+parallel programming in C, C++, and Fortran.
+
+Key features:
+  - Uses compiler directives starting with #pragma omp
+  - Automatically creates and manages threads
+  - Shared memory parallelism (all threads share the same memory)
+  - Compile flag: g++ -fopenmp filename.cpp
+
+Important directives used in this practical:
+
+  a) #pragma omp parallel for
+     Distributes loop iterations across multiple threads.
+     Each thread handles a different iteration simultaneously.
+     This is the main source of parallelism.
+
+  b) #pragma omp critical
+     Ensures only one thread executes the enclosed block at a time.
+     Used to protect shared variables (visited array, queue, stack)
+     from simultaneous access by multiple threads.
+     Prevents Race Conditions.
+
+
+5. PARALLEL BFS USING OPENMP
+------------------------------
+In Parallel BFS, we process all nodes at the same level
+simultaneously using multiple threads.
+
+For each level:
+  - A #pragma omp parallel for loop distributes the nodes
+    of that level among available threads.
+  - Each thread explores the neighbors of its assigned node.
+  - #pragma omp critical protects the visited array and queue
+    so two threads don't mark the same neighbor simultaneously.
+
+Advantage: All neighbors in a level are explored at the same time
+           instead of one by one.
+
+
+6. PARALLEL DFS USING OPENMP
+------------------------------
+In Parallel DFS, we use an iterative approach with a stack
+(not recursive) to avoid deadlocks with OpenMP critical sections.
+
+For each node popped from the stack:
+  - A #pragma omp parallel for loop checks all neighbors
+    simultaneously using multiple threads.
+  - #pragma omp critical protects the visited array and stack.
+  - All unvisited neighbors are pushed to the stack together.
+
+Note: Recursive DFS is NOT used with OpenMP because a thread
+holding a critical section lock cannot re-enter it recursively,
+which causes a deadlock. Iterative DFS with a stack solves this.
+
+
+7. RACE CONDITION AND CRITICAL SECTION
+----------------------------------------
+Race Condition:
+  When two or more threads access and modify shared data
+  simultaneously, leading to unpredictable/wrong results.
+  Example: Two threads both check visited[5] == false,
+           both mark it true and both add node 5 to queue.
+           Result: node 5 is processed twice — wrong!
+
+Critical Section:
+  A block of code that only one thread can execute at a time.
+  #pragma omp critical ensures mutual exclusion.
+  Prevents race conditions on shared variables.
+
+
+----------------------------------------------------------------
+CONCLUSION
+----------------------------------------------------------------
+In this practical, we successfully implemented Parallel BFS and
+DFS on an undirected graph using OpenMP in C++. BFS uses a queue
+and processes nodes level by level. DFS uses an iterative stack
+to avoid recursive deadlocks. OpenMP's parallel for directive
+enables simultaneous exploration of neighbors, while the critical
+directive ensures thread-safe access to shared data structures.
+This demonstrates how graph traversal can be made faster using
+parallel processing.
+
+================================================================
