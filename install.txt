@@ -1,0 +1,10 @@
+1. Install Required Packages
+
+- sudo apt update 
+- sudo apt install build-essential
+- sudo apt install libomp-dev
+
+RUN - 
+
+g++ -fopenmp bfs_dfs.cpp -o /tp
+./tp
