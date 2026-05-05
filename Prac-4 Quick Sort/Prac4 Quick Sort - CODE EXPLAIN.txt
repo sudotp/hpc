@@ -1,0 +1,193 @@
+================================================================
+PRACTICAL 4 - Parallel Quicksort using OpenMP
+CODE EXPLANATION + OUTPUT EXPLANATION + TEACHER Q&A
+================================================================
+
+WHAT THIS PRACTICAL DOES
+--------------------------
+Implements Quicksort in sequential and parallel versions.
+Measures and compares performance of both.
+
+Input array: {9, 3, 7, 1, 5, 8, 2, 6, 4, 0}
+Expected sorted: 0 1 2 3 4 5 6 7 8 9
+
+
+================================================================
+CODE EXPLANATION
+================================================================
+
+--- PARTITION FUNCTION ---
+
+int partition(arr, low, high):
+  The heart of Quicksort. Places pivot in its correct position.
+  Returns the index where pivot ended up.
+
+int pivot = arr[high];
+  Last element chosen as pivot.
+  Pivot will be placed at its correct sorted position.
+
+int i = low - 1;
+  i = boundary between small elements and large elements.
+  Starts just before the range.
+
+for(j = low; j < high; j++):
+  Scan all elements except pivot.
+
+if(arr[j] <= pivot) { i++; swap(arr[i], arr[j]); }
+  If element is smaller than pivot:
+    Move boundary one step right (i++)
+    Swap element to the left side (small side)
+
+swap(arr[i+1], arr[high]);
+  Place pivot at its correct position (i+1).
+  Everything left of i+1 is smaller than pivot.
+  Everything right of i+1 is larger than pivot.
+  Pivot is now PERMANENTLY in its correct position.
+
+--- SEQUENTIAL QUICKSORT ---
+
+void seqQuickSort(arr, low, high):
+  Standard recursive Quicksort — no parallelism.
+
+if(low < high):
+  Base case: single element needs no sorting.
+
+int pi = partition(arr, low, high):
+  Partition → pivot placed correctly → returns its index.
+
+seqQuickSort(arr, low, pi-1):
+  Sort LEFT half (smaller than pivot). ONE AFTER ANOTHER.
+
+seqQuickSort(arr, pi+1, high):
+  Sort RIGHT half (larger than pivot). ONE AFTER ANOTHER.
+
+--- PARALLEL QUICKSORT ---
+
+void parQuickSort(arr, low, high, depth=0):
+  depth tracks how deep in recursion we are.
+
+int pi = partition(arr, low, high):
+  Same partition — places pivot correctly.
+
+if(depth <= 3):
+  Parallelize only at top 4 levels.
+  At deeper levels, subarrays are tiny — not worth threads.
+
+#pragma omp parallel sections:
+  Opens a parallel region with two simultaneous sections.
+
+#pragma omp section → parQuickSort(arr, low, pi-1):
+  Thread 1 sorts the LEFT half.
+
+#pragma omp section → parQuickSort(arr, pi+1, high):
+  Thread 2 sorts the RIGHT half.
+  BOTH THREADS WORK AT THE SAME TIME.
+
+Left and right halves are fully independent — no conflict.
+This is why Quicksort is naturally good for parallelism.
+
+else: seqQuickSort both halves:
+  At depth > 3, switch to sequential (overhead not worth it).
+
+--- MAIN ---
+
+a1 = {9,3,7,1,5,8,2,6,4,0} — for sequential.
+a2 = copy of a1 — for parallel.
+Same input for fair comparison.
+
+t = omp_get_wtime() before and after each sort.
+Time taken = omp_get_wtime() - t.
+
+seqQuickSort(a1, 0, a1.size()-1):
+  Sorts full array from index 0 to last index (9).
+
+parQuickSort(a2, 0, a2.size()-1):
+  Same range, but parallel sections used at top levels.
+
+for(int x : a2) cout << x << " ":
+  Prints sorted result to confirm correctness.
+
+
+================================================================
+OUTPUT EXPLANATION
+================================================================
+
+Output (Windows):
+  Sequential Time : 0 sec
+  Parallel Time   : 0.00200009 sec
+  Sorted: 0 1 2 3 4 5 6 7 8 9
+
+WHY "Sorted: 0 1 2 3 4 5 6 7 8 9"
+  We did NOT write these values manually.
+  Input was {9,3,7,1,5,8,2,6,4,0}.
+  Quicksort algorithm automatically rearranged them
+  in ascending order. This proves the code is CORRECT.
+
+WHY Sequential Time = 0 sec
+  Windows timer has low precision.
+  Sorting 10 elements takes about 0.000004 sec —
+  too small for Windows timer to display.
+  So it shows 0. Actual time is NOT zero.
+
+WHY Parallel Time = 0.002 sec (MORE than sequential)
+  Creating OpenMP threads has overhead (startup cost).
+  For only 10 elements, the actual sorting is instant.
+  But launching threads still takes ~0.002 sec regardless.
+  So: parallel time = thread overhead + sorting
+                    = 0.002 sec + tiny = 0.002 sec
+  This is NORMAL and EXPECTED for small arrays.
+  For large arrays (10,000+ elements), parallel is faster.
+
+Simple analogy:
+  Sorting 10 books alone = 5 seconds.
+  Calling 4 friends to help = 2 min wait + 2 sec sorting.
+  Alone was faster. But for 10,000 books, friends win.
+
+
+================================================================
+TEACHER QUESTIONS & ANSWERS
+================================================================
+
+Q. What is Quicksort?
+A. Divide and Conquer sort. Picks pivot, partitions array,
+   recursively sorts both halves. Average O(n log n).
+
+Q. What does partition do?
+A. Places pivot at correct position. All elements left of pivot
+   are smaller, all right are larger. Returns pivot index.
+
+Q. What is the pivot?
+A. The element used to split the array. We use the last element.
+   After partition, pivot is in its final correct position.
+
+Q. How is Parallel Quicksort implemented?
+A. After partition, left and right halves are independent.
+   #pragma omp parallel sections runs both simultaneously.
+   Thread 1 sorts left, Thread 2 sorts right at same time.
+
+Q. Why is Quicksort naturally parallel?
+A. Left and right halves after partition are completely
+   independent — sorting one doesn't affect the other.
+   No data conflict, no race condition.
+
+Q. Why depth <= 3 limit for parallelism?
+A. Deeper levels have tiny subarrays. Thread creation overhead
+   exceeds sorting benefit. Sequential is better there.
+
+Q. Why is parallel slower for 10 elements?
+A. Thread creation overhead (0.002 sec) is greater than
+   sorting time for small arrays. Normal behavior.
+   Parallel wins for large datasets.
+
+Q. Why Sequential shows 0 sec on Windows?
+A. Windows timer resolution is low. Time too small to display.
+   Actual time is ~0.000004 sec — not truly zero.
+
+Q. What is #pragma omp parallel sections?
+A. Divides code into blocks that run simultaneously.
+   Each #pragma omp section runs in its own thread.
+
+Q. Compile command?
+A. g++ -fopenmp P4_Quicksort.cpp -o quicksort
+
+================================================================

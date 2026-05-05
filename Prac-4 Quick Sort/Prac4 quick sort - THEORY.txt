@@ -1,0 +1,224 @@
+================================================================
+PRACTICAL 4 - Parallel Quicksort using OpenMP
+THEORY - FOR WRITING ON PAPER
+================================================================
+
+TITLE:
+Performance Enhancement of Parallel Quicksort Algorithm
+using OpenMP
+
+----------------------------------------------------------------
+AIM
+----------------------------------------------------------------
+To implement and analyze the performance enhancement of the
+Quicksort algorithm using OpenMP parallelism in C++ and compare
+the execution time of sequential and parallel versions.
+
+----------------------------------------------------------------
+OBJECTIVES
+----------------------------------------------------------------
+1. To understand the Quicksort algorithm and its partitioning logic.
+2. To implement parallel Quicksort using OpenMP parallel sections.
+3. To measure and compare performance using omp_get_wtime().
+4. To understand why Quicksort is naturally suited for parallelism.
+
+----------------------------------------------------------------
+THEORY
+----------------------------------------------------------------
+
+1. SORTING AND PERFORMANCE
+----------------------------
+Sorting is the process of arranging elements in a defined order.
+It is one of the most fundamental operations in computer science,
+used in databases, search engines, and data processing.
+
+For large datasets, the efficiency of a sorting algorithm
+is critical. Parallel sorting algorithms use multiple processor
+cores to sort data faster than sequential algorithms.
+
+
+2. QUICKSORT ALGORITHM
+------------------------
+Quicksort is a highly efficient, comparison-based sorting
+algorithm that uses the Divide and Conquer strategy.
+
+Key Idea:
+  Pick a pivot element and partition the array such that:
+    - All elements SMALLER than pivot → LEFT side
+    - All elements LARGER than pivot  → RIGHT side
+    - Pivot is placed at its CORRECT final position
+  Then recursively sort the left and right sides independently.
+
+Steps:
+  Step 1: Choose pivot (we use the last element).
+  Step 2: Partition — rearrange elements around pivot.
+  Step 3: Recursively sort left sub-array (elements < pivot).
+  Step 4: Recursively sort right sub-array (elements > pivot).
+  Step 5: Repeat until sub-arrays have 0 or 1 elements (base case).
+
+Example:
+  Input: [9, 3, 7, 1, 5, 8, 2, 6, 4, 0]
+  Pivot = 0 (last element)
+  After partition: [] | 0 | [9,3,7,1,5,8,2,6,4]
+  Recursively sort right side:
+    Pivot = 4 → [3,1,2] | 4 | [9,7,5,8,6]
+    ...continue until fully sorted
+  Final: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+Time Complexity:
+  Average Case: O(n log n) — pivot divides array roughly in half
+  Worst Case:   O(n²)      — pivot is always smallest or largest
+  Best Case:    O(n log n) — pivot always divides perfectly
+
+Space Complexity: O(log n) — recursion stack depth
+
+
+3. PARTITION FUNCTION
+-----------------------
+The partition function is the heart of Quicksort.
+
+Algorithm:
+  1. Choose last element as pivot.
+  2. Initialize i = low - 1 (boundary pointer).
+  3. For each element j from low to high-1:
+       If arr[j] <= pivot:
+         Increment i
+         Swap arr[i] and arr[j]
+  4. Swap pivot (arr[high]) with arr[i+1].
+  5. Return i+1 as the pivot's correct position.
+
+After partition:
+  arr[low .. pi-1]  = all elements < pivot
+  arr[pi]           = pivot (in correct final position)
+  arr[pi+1 .. high] = all elements > pivot
+
+The pivot is NEVER moved again — it is already sorted.
+
+
+4. WHY QUICKSORT IS NATURALLY PARALLEL
+----------------------------------------
+After the partition step, we have two completely independent
+sub-arrays:
+  Left:  arr[low .. pi-1]
+  Right: arr[pi+1 .. high]
+
+These two sub-arrays share NO elements.
+Sorting the left side does not affect the right side.
+Sorting the right side does not affect the left side.
+
+This independence makes Quicksort ideal for parallelism:
+  Thread 1 can sort the LEFT side
+  Thread 2 can sort the RIGHT side
+  Both work SIMULTANEOUSLY with no conflict or communication needed.
+
+
+5. PARALLEL QUICKSORT USING OPENMP
+-------------------------------------
+We use OpenMP's parallel sections to sort both sub-arrays
+simultaneously after each partition.
+
+Implementation:
+
+  #pragma omp parallel sections
+  {
+      #pragma omp section
+      parQuickSort(arr, low, pi-1, depth+1);   ← Thread 1
+
+      #pragma omp section
+      parQuickSort(arr, pi+1, high, depth+1);  ← Thread 2
+  }
+
+Both sections execute at the same time using separate threads.
+After both complete, execution continues (implicit barrier).
+
+Depth Limiting:
+  Parallelism is applied only when depth <= 3.
+  At depth 0: array splits into 2 parts   → 2 threads
+  At depth 1: each part splits into 2     → 4 threads
+  At depth 2: each part splits into 2     → 8 threads
+  At depth 3: each part splits into 2     → 16 threads
+
+  Beyond depth 3, sub-arrays are small.
+  Thread creation overhead would exceed sorting time.
+  So we switch back to sequential Quicksort for depth > 3.
+
+
+6. OPENMP DIRECTIVES USED
+---------------------------
+a) #pragma omp parallel sections
+   Marks a block containing multiple parallel sections.
+   All sections inside are distributed among available threads.
+   Threads wait at the end of the block (implicit barrier).
+
+b) #pragma omp section
+   Marks one independent unit of work inside parallel sections.
+   Each section is assigned to one thread.
+   Two sections = two threads running simultaneously.
+
+c) omp_get_wtime()
+   High-resolution wall-clock timer.
+   Returns current time in seconds as a double.
+   Used to measure execution time:
+     t = omp_get_wtime();
+     // sort here
+     elapsed = omp_get_wtime() - t;
+
+
+7. SEQUENTIAL vs PARALLEL COMPARISON
+---------------------------------------
+Sequential Quicksort:
+  Left and right recursions happen ONE AFTER ANOTHER.
+  Total time = time(left) + time(right)
+
+Parallel Quicksort:
+  Left and right recursions happen SIMULTANEOUSLY.
+  Total time = max(time(left), time(right))
+
+This gives approximately 2x speedup at each level for
+a balanced partition (left ≈ right in size).
+
+With multiple levels of parallelism (depth 0 to 3):
+  Theoretical max threads = 2^4 = 16 threads
+  Speedup depends on number of CPU cores available.
+
+Performance note:
+  For small arrays (< 100 elements):
+    Thread creation overhead > sorting time → parallel slower
+  For large arrays (10,000+ elements):
+    Parallel is significantly faster
+    Speedup improves with more CPU cores
+
+
+8. COMPARISON WITH OTHER PARALLEL SORT ALGORITHMS
+---------------------------------------------------
+Parallel Bubble Sort (Odd-Even):
+  Uses parallel for on adjacent pairs.
+  O(n²) — slower algorithm, limited speedup.
+
+Parallel Merge Sort:
+  Also uses parallel sections on left/right halves.
+  Always O(n log n) but needs O(n) extra memory.
+
+Parallel Quicksort:
+  In-place partitioning — no extra memory needed.
+  Average O(n log n), naturally parallel after each partition.
+  Best practical performance in most real-world cases.
+
+
+----------------------------------------------------------------
+CONCLUSION
+----------------------------------------------------------------
+In this practical, we implemented Parallel Quicksort using
+OpenMP in C++. The partition function places the pivot in its
+correct position and divides the array into two independent
+halves. Using #pragma omp parallel sections, both halves are
+sorted simultaneously by separate threads. Depth limiting
+(depth <= 3) ensures parallelism is applied only at top levels
+where the benefit outweighs thread creation overhead. For the
+input array {9,3,7,1,5,8,2,6,4,0}, the output is correctly
+sorted as {0,1,2,3,4,5,6,7,8,9}. Parallel Quicksort provides
+significant performance enhancement over sequential Quicksort
+for large datasets, demonstrating effective use of OpenMP for
+performance-critical sorting operations.
+
+================================================================
