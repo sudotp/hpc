@@ -1,18 +1,14 @@
 ================================================================
 PRACTICAL 1 - Parallel BFS and DFS using OpenMP
-EXPLANATION - LINE BY LINE + TEACHER QUESTIONS
+CODE EXPLANATION + OUTPUT EXPLANATION + TEACHER Q&A
 ================================================================
 
-WHAT IS THIS PRACTICAL?
-------------------------
-We implement two graph traversal algorithms:
-  BFS = Breadth First Search (level by level)
-  DFS = Depth First Search   (deep first)
-Both are made parallel using OpenMP in C++.
+WHAT THIS PRACTICAL DOES
+--------------------------
+Implements BFS and DFS graph traversal on a 7-node undirected
+graph using OpenMP for parallel neighbor exploration.
 
-Dataset: An undirected graph with 7 nodes (0 to 6)
-
-Graph structure:
+Graph used:
       0
      / \
     1   2
@@ -21,227 +17,145 @@ Graph structure:
            \
             6
 
-
 ================================================================
-LINE BY LINE EXPLANATION
+CODE EXPLANATION
 ================================================================
-
---- INCLUDES ---
-
-#include <iostream>
-  Needed for cout (printing output to screen)
-
-#include <vector>
-  Needed for vector<int> — dynamic array used for graph and stack
-
-#include <queue>
-  Needed for queue<int> — used in BFS to store nodes level by level
 
 #include <omp.h>
-  Needed for all OpenMP parallel directives like #pragma omp
-
-
---- GRAPH SETUP ---
+  Includes OpenMP library for parallel programming.
 
 const int NODES = 7;
-  Total number of nodes in our graph is 7 (node 0 to node 6)
+  Total nodes in the graph = 7 (numbered 0 to 6).
 
 vector<int> graph[NODES];
-  Creates 7 empty lists — one for each node
-  graph[0] will store neighbors of node 0, and so on
-  This is called an Adjacency List representation
+  Adjacency list — graph[i] stores all neighbors of node i.
+  graph[0] = [1,2], graph[1] = [0,3,4], etc.
 
-void addEdge(int u, int v) {
-    graph[u].push_back(v);
-    graph[v].push_back(u);
-}
-  Adds an undirected edge between node u and node v
-  Undirected means: if 0 connects to 1, then 1 also connects to 0
-  So we add both directions
+addEdge(u, v):
+  Adds edge between u and v in BOTH directions (undirected).
+  graph[u] gets v, graph[v] gets u.
 
-
---- PARALLEL BFS FUNCTION ---
-
-void parallelBFS(int start) {
-  Takes starting node as input. We pass 0 from main.
+--- BFS FUNCTION ---
 
 vector<bool> visited(NODES, false);
-  Creates a list of 7 false values
-  visited[i] = true means node i has already been visited
-  Prevents visiting same node twice
+  All nodes start as unvisited (false).
 
 queue<int> q;
-  Queue stores nodes to be visited next
-  Queue follows FIFO = First In First Out (like a line)
+  Queue stores nodes to visit — FIFO (First In First Out).
 
-visited[start] = true;
-q.push(start);
-  Mark starting node as visited and add it to queue
+visited[start]=true; q.push(start);
+  Mark node 0 as visited and add to queue to begin.
 
-while (!q.empty()) {
-  Keep running as long as there are nodes left to visit
+while(!q.empty()):
+  Keep running until all reachable nodes are visited.
 
-int size = q.size();
-vector<int> currentLevel;
-  size = how many nodes are at the current BFS level
-  currentLevel = list to hold all nodes at this level
-
-for (int i = 0; i < size; i++) {
-    int node = q.front(); q.pop();
-    currentLevel.push_back(node);
-    cout << node << " ";
-}
-  Take all nodes from current level out of queue
-  Print each one
-  Store them in currentLevel list
+currentLevel = all nodes at current BFS level.
+  We take ALL nodes at one level, print them, then explore
+  their neighbors in parallel.
 
 #pragma omp parallel for
-for (int i = 0; i < (int)currentLevel.size(); i++) {
-  OpenMP runs this loop in parallel
-  Multiple threads each handle a different node in currentLevel
-  This is where parallelism happens — exploring neighbors together
+  Splits the currentLevel loop across multiple threads.
+  Each thread handles a different node simultaneously.
 
-    int node = currentLevel[i];
-    for (int neighbor : graph[node]) {
-      For each node, go through all its neighbors
+#pragma omp critical
+  Only ONE thread can enter this block at a time.
+  Prevents two threads marking same neighbor simultaneously
+  (Race Condition).
 
-        #pragma omp critical
-        {
-            if (!visited[neighbor]) {
-                visited[neighbor] = true;
-                q.push(neighbor);
-            }
-        }
-  #pragma omp critical = only ONE thread can run this block at a time
-  Without this, two threads might both try to mark same neighbor
-  as visited at the same time — causing wrong results (race condition)
-  So critical ensures thread-safe access to visited[] and queue
-
-
---- PARALLEL DFS FUNCTION ---
-
-void parallelDFS(int start, vector<bool>& visited) {
-  Takes start node and visited array as input
-  & means we pass visited by reference — changes reflect outside too
+--- DFS FUNCTION ---
 
 vector<int> stack;
-stack.push_back(start);
-visited[start] = true;
-  We use a vector as a stack (LIFO = Last In First Out)
-  Push starting node to stack and mark visited
+  Stack stores nodes — LIFO (Last In First Out).
+  We use iterative DFS (not recursive) to avoid deadlock.
 
-while (!stack.empty()) {
-  Keep going until stack is empty
+stack.back() / stack.pop_back()
+  Takes the TOP element from stack and removes it.
 
-    int node = stack.back(); stack.pop_back();
-    cout << node << " ";
-  Take the TOP node from stack, print it, remove it
+#pragma omp parallel for + critical
+  All neighbors checked in parallel.
+  Unvisited ones added to toVisit list safely.
 
-    vector<int> toVisit;
-  Temporary list to collect unvisited neighbors
+for(int nb : toVisit) stack.push_back(nb);
+  After parallel check, push found neighbors to stack.
 
-    #pragma omp parallel for
-    for (int i = 0; i < (int)graph[node].size(); i++) {
-        int nb = graph[node][i];
-        #pragma omp critical
-        {
-            if (!visited[nb]) {
-                visited[nb] = true;
-                toVisit.push_back(nb);
-            }
-        }
-    }
-  Parallel loop checks all neighbors of current node simultaneously
-  Each unvisited neighbor is added to toVisit safely using critical
+--- MAIN ---
 
-    for (int nb : toVisit)
-        stack.push_back(nb);
-  Push all newly found neighbors onto the stack
+addEdge calls build the graph with edges:
+  0-1, 0-2, 1-3, 1-4, 2-5, 5-6
 
-
---- MAIN FUNCTION ---
-
-addEdge(0, 1); addEdge(0, 2);
-addEdge(1, 3); addEdge(1, 4);
-addEdge(2, 5); addEdge(5, 6);
-  Builds the graph by adding all edges one by one
-
-parallelBFS(0);
-  Calls BFS starting from node 0
-
-vector<bool> dfsVisited(NODES, false);
-cout << "Parallel DFS traversal: ";
-parallelDFS(0, dfsVisited);
-  Creates fresh visited array for DFS
-  Calls DFS starting from node 0
+parallelBFS(0) — starts BFS from node 0.
+parallelDFS(0, dfsVisited) — starts DFS from node 0.
 
 
 ================================================================
-EXPECTED OUTPUT
-================================================================
-Graph has 7 nodes (0 to 6)
-Starting node: 0
-
-Parallel BFS traversal: 0 1 2 3 4 5 6
-Parallel DFS traversal: 0 2 5 6 1 4 3
-
-
-================================================================
-TEACHER QUESTIONS AND ANSWERS
+OUTPUT EXPLANATION
 ================================================================
 
-Q1. What is BFS?
-A:  Breadth First Search — visits nodes level by level.
-    Uses a Queue (FIFO). Visits all neighbors before going deeper.
-    Output: 0 1 2 3 4 5 6
+Output:
+  Graph has 7 nodes (0 to 6)
+  Starting node: 0
+  Parallel BFS traversal: 0 1 2 3 4 5 6
+  Parallel DFS traversal: 0 2 5 6 1 4 3
 
-Q2. What is DFS?
-A:  Depth First Search — goes as deep as possible before backtracking.
-    Uses a Stack (LIFO). Explores one full path before trying another.
-    Output: 0 2 5 6 1 4 3
+WHY BFS gives: 0 1 2 3 4 5 6
+  BFS visits level by level:
+  Level 0: 0           (start)
+  Level 1: 1 2         (neighbors of 0)
+  Level 2: 3 4 5       (neighbors of 1 and 2)
+  Level 3: 6           (neighbor of 5)
+  Result: 0 1 2 3 4 5 6 — always in this order.
 
-Q3. What is #pragma omp parallel for?
-A:  An OpenMP directive that splits a for loop across multiple threads.
-    Each thread handles a different iteration simultaneously.
-    This is the core of parallelism in this practical.
+WHY DFS gives: 0 2 5 6 1 4 3
+  DFS uses a stack — goes deep first.
+  Start: push 0 → pop 0, push neighbors [1,2]
+  Pop 2 (top of stack), push its neighbor [5]
+  Pop 5, push [6]
+  Pop 6, no new neighbors
+  Pop 1, push [3,4]
+  Pop 4, pop 3
+  Result: 0 2 5 6 1 4 3
+  Note: DFS order can vary slightly due to parallelism —
+  this is CORRECT and EXPECTED behavior.
 
-Q4. What is #pragma omp critical?
-A:  Ensures only ONE thread enters that block at a time.
-    Prevents two threads from writing to visited[] at the same time.
-    Without it, two threads might both mark same node as unvisited
-    and add it twice — this is called a Race Condition.
+We did NOT manually set these values.
+The algorithms produced this order automatically.
 
-Q5. Why do we use iterative DFS instead of recursive?
-A:  Recursive DFS + omp critical causes a deadlock.
-    Thread holds the lock and tries to re-enter recursively
-    but cannot because same thread already holds the lock.
-    Iterative DFS with a stack avoids this problem completely.
 
-Q6. What is an Adjacency List?
-A:  A way to represent a graph using a list of lists.
-    graph[0] = [1, 2] means node 0 is connected to 1 and 2.
-    More memory efficient than a 2D matrix for sparse graphs.
+================================================================
+TEACHER QUESTIONS & ANSWERS
+================================================================
 
-Q7. What is the difference between Queue and Stack?
-A:  Queue = FIFO (First In First Out) — used in BFS
-    Stack  = LIFO (Last In First Out) — used in DFS
-    Queue visits nodes in the order they were added.
-    Stack visits the most recently added node first.
+Q. What is BFS?
+A. Visits nodes level by level using a Queue (FIFO).
 
-Q8. What is a visited array and why is it needed?
-A:  visited[i] = true means node i has already been explored.
-    Without it, we would visit the same node again and again
-    causing an infinite loop in BFS/DFS.
+Q. What is DFS?
+A. Goes deep first using a Stack (LIFO), backtracks when stuck.
 
-Q9. What is OpenMP?
-A:  Open Multi-Processing — a library for parallel programming in C++.
-    Uses compiler directives starting with #pragma omp.
-    Automatically creates and manages threads.
-    Compile with: g++ -fopenmp filename.cpp
+Q. What is #pragma omp parallel for?
+A. Splits loop iterations across multiple threads to run in parallel.
 
-Q10. What is the graph structure used?
-A:   Undirected graph with 7 nodes (0 to 6).
-     Edges: 0-1, 0-2, 1-3, 1-4, 2-5, 5-6
-     Represented as Adjacency List.
+Q. What is #pragma omp critical?
+A. Only one thread runs this block at a time. Prevents race conditions.
+
+Q. Why iterative DFS instead of recursive?
+A. Recursive DFS + omp critical causes deadlock. Iterative stack avoids it.
+
+Q. What is a Race Condition?
+A. Two threads access same data simultaneously causing wrong results.
+   Critical section prevents this.
+
+Q. What is an Adjacency List?
+A. Each node stores a list of its neighbors. graph[0]=[1,2] means
+   node 0 connects to 1 and 2.
+
+Q. Why does DFS output differ from BFS?
+A. BFS uses Queue (level by level). DFS uses Stack (deep first).
+   Different data structures give different traversal orders.
+
+Q. What does visited[] do?
+A. Tracks which nodes are already seen. Prevents infinite loops.
+
+Q. Compile command?
+A. g++ -fopenmp P1_Parallel_BFS_DFS.cpp -o bfs_dfs
 
 ================================================================
